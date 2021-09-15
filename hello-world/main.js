@@ -3,18 +3,21 @@
 Version: 1.0.0
 Purpose:
   Implements a simple "Hello World" Dynamic Content Assembly EW whereby the 
-  response is dynamically constructed based on the Accept-Language header 
+  response and special response header are dynamically constructed based on the Accept-Language header 
   in the request.
+
   For simplicity, the 1st Accept-Language header encountered is used as key
   to retrieve the corresponding language specific greeting from EdgeKV.
 
+  
 Repo: https://github.com/aloebach-akamai/EdgeKV-demo
-
-Based on the Edgeworker code found here: https://github.com/akamai/edgeworkers-examples/edgekv/examples/hello-world
 */
 
+
+//importing necessary modules
 import { createResponse } from 'create-response';
 import { EdgeKV } from './edgekv.js';
+import { logger } from 'log';
 
 // Create simple Hello World Response based on request Accept-Language
 async function hello_world_response(request) {
@@ -34,7 +37,7 @@ async function hello_world_response(request) {
     }
     let key = language.toLowerCase();
     
-    // Set Up EdgeKV
+    // Set Up EdgeKV -> make sure to double check the EdgeKV namespace and group!!!
     const edgeKv = new EdgeKV({namespace: "edgekv-lab", group: "greetings"});
     
     // Retrieve the greeting associated with the language using the latter 
@@ -46,6 +49,9 @@ async function hello_world_response(request) {
         // Catch the error and store the error message to use in a response
         // header for debugging. Use a default greeting as well in this case.
         err_msg = error.toString();
+        logger.log("ERROR: " + 
+        encodeURI(err_msg).replace(/(%20|%0A|%7B|%22|%7D)/g, " "));
+
         greeting = default_greeting;
     }
 
@@ -63,6 +69,7 @@ async function hello_world_response(request) {
                     headers: 
                       {'Content-Type': ['text/html'], 
                        'Content-Language': [content_lang],
+                       'X-Hello-World': [greeting],
                        // Safely Encode the error message to remove unsafe chars
                        // but also replace some encoded strings with safe chars for readability
                        'X-EKV-ERROR': [encodeURI(err_msg).replace(/(%20|%0A|%7B|%22|%7D)/g, " ")]
@@ -74,6 +81,8 @@ async function hello_world_response(request) {
                           response.headers,
                           response.body);
 }
+
+
 
 export async function responseProvider(request) {
     return hello_world_response(request)
